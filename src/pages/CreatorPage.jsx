@@ -152,7 +152,7 @@ export default function CreatorPage() {
               <div className="mt-4">
                 <div className="flex justify-between text-xs text-ink-soft">
                   <span>
-                    Monthly goal · {formatMoney(creator.goal)}
+                    Support goal · {formatMoney(creator.goal)}
                   </span>
                   <span>{goalPct}%</span>
                 </div>

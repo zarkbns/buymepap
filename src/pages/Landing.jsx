@@ -20,7 +20,7 @@ const features = [
   { emoji: '🇳🇬', text: 'Built for Nigeria — naira first, payouts to your local bank' },
   { emoji: '💳', text: 'Cards, bank transfer and USSD via Paystack' },
   { emoji: '🕶️', text: 'Supporters can stay anonymous on the wall' },
-  { emoji: '🎯', text: 'Set a monthly goal and watch supporters pour in' },
+  { emoji: '🎯', text: 'Set a support goal and watch supporters pour in' },
 ];
 
 function Preview() {
@@ -36,7 +36,7 @@ function Preview() {
       <div className="mt-4 h-2 rounded-full bg-ink/10">
         <div className="h-2 w-3/4 rounded-full bg-pap-dark" />
       </div>
-      <p className="mt-1 text-xs text-ink-soft">75% of this month's ₦25,000 goal</p>
+      <p className="mt-1 text-xs text-ink-soft">75% of the ₦25,000 goal</p>
       <div className="mt-4 rounded-xl bg-pap/15 p-3">
         <p className="text-sm">
           <b>Chidi</b> bought 3 cups of pap

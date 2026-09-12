@@ -153,7 +153,7 @@ export default function Dashboard() {
                 <input id="cupPrice" className="input" type="number" min={1} max={100000} required value={form.cupPrice} onChange={set('cupPrice')} />
               </div>
               <div>
-                <label className="label" htmlFor="goal">Monthly goal (₦, 0 to hide)</label>
+                <label className="label" htmlFor="goal">Support goal (₦, 0 to hide)</label>
                 <input id="goal" className="input" type="number" min={0} step={1000} required value={form.goal} onChange={set('goal')} />
               </div>
             </div>
