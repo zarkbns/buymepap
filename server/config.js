@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
+try {
+  process.loadEnvFile(path.join(root, '.env'));
+} catch {
+  // No .env file — the real environment is used as-is.
+}
+
 const port = Number(process.env.PORT || 8787);
 
 const config = {
