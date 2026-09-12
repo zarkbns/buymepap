@@ -19,14 +19,14 @@ router.get('/:username', (req, res) => {
   const supporters = listPaidSupports(creator.id, 20).map(publicSupport);
   const totals = db
     .prepare(
-      `SELECT COALESCE(SUM(cups), 0) AS cups, COUNT(*) AS support_count
+      `SELECT COALESCE(SUM(cups), 0) AS cups, COUNT(*) AS support_count, COALESCE(SUM(amount), 0) AS earned_kobo
        FROM supports WHERE creator_id = ? AND status = 'success'`
     )
     .get(creator.id);
   res.json({
     creator: publicCreator(creator),
     supporters,
-    stats: { cups: totals.cups, supportCount: totals.support_count },
+    stats: { cups: totals.cups, supportCount: totals.support_count, earnedKobo: totals.earned_kobo },
   });
 });
 

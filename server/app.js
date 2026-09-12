@@ -19,6 +19,7 @@ export function createApp() {
   app.use(express.json({ limit: '64kb' }));
 
   app.use('/api/auth', authLimiter, authRoutes);
+  app.get('/api/config', (req, res) => res.json({ paymentsMode: config.paystackMode }));
   app.use('/api', creatorsRoutes);
   app.use('/api/pages', pagesRoutes);
   app.use('/api/supports', supportsRoutes);
