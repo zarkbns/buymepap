@@ -1,0 +1,29 @@
+{
+  "name": "buymepap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Buy Me a Coffee for Nigeria and Africa — fans buy creators a cup of pap. Naira tips via Paystack: cards, bank transfer, USSD.",
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "dev:web": "vite",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "jose": "^6.1.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "@vitejs/plugin-react": "^5.0.1",
+    "tailwindcss": "^4.1.13",
+    "vite": "^7.1.5"
+  }
+}
