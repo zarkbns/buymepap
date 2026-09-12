@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Buy Me a Coffee for Nigeria and Africa — fans buy creators a cup of pap. Naira tips via Paystack: cards, bank transfer, USSD.",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "node --watch server/index.js",
     "dev:web": "vite",
