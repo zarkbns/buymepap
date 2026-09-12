@@ -81,12 +81,59 @@ npm start                 # Express serves dist/ + API on :8787
 4. Restart the server. `/api/config` now reports `paymentsMode: "paystack"` and the mock checkout 404s.
 5. Payouts to your Nigerian bank are handled by Paystack on their normal schedule.
 
+## Deploying
+
+The ledger is a single SQLite file, so the API needs **one persistent process with a writable
+disk**. Vercel's serverless functions have neither, so the standard shape here is Vercel for the
+SPA + Railway (or Render/Fly) for the API. Vercel proxies `/api/*` to the backend, which keeps
+everything same-origin — no CORS layer needed.
+
+### Backend on Railway
+
+`railway.json` is committed: Nixpacks builds it, `npm start` runs it, `/healthz` is the health check.
+
+1. New project → deploy this repo's `main`.
+2. Add a **Volume** mounted at `/data`, then set `PAP_DB_PATH=/data/buymepap.db` so tips survive
+   restarts and redeploys. Without a volume the database is wiped on every deploy.
+3. Variables: `JWT_SECRET`, `PAYSTACK_SECRET_KEY`, `APP_URL=https://<frontend-domain>`.
+   `PORT` is injected by the host. Node ≥ 24 is required (pinned in `engines`) for flag-free `node:sqlite`.
+4. `APP_URL` must be the **frontend** URL — Paystack returns supporters to
+   `${APP_URL}/<username>?reference=…` after checkout.
+5. Public domain (Service → Settings → Generate Domain) gives you `https://<railway-domain>`.
+
+### Frontend on Vercel
+
+Framework preset **Vite**; build `npm run build`, output `dist`. Then two rewrites, in this order —
+the API rule must come before the SPA catch-all or it will swallow it:
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://<railway-domain>/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+Commit that as `vercel.json` once the backend domain exists (it's per-environment, so the dashboard
+Rewrites screen works too). Deploy, then paste the domain into Railway's `APP_URL`.
+
+### Paystack webhook
+
+Dashboard → Settings → API Keys & Webhooks → `https://<railway-domain>/api/webhooks/paystack`,
+event `charge.success`. Then confirm with `curl https://<railway-domain>/healthz` — it reports the
+active payments mode, so it also tells you whether mock or live keys took effect.
+
+**Single-host option:** run everything on Railway and skip Vercel — build `dist/` in the image and
+`server/app.js` already serves the SPA with the deep-link fallback on the same origin.
+
 ## API
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | POST | `/api/auth/signup` | — | Create creator, returns `{ token, creator }` |
 | POST | `/api/auth/login` | — | Sign in, returns `{ token, creator }` |
+| GET | `/healthz` | — | Health check: `{ ok, paymentsMode }` |
 | GET | `/api/config` | — | `{ paymentsMode: "mock" \| "paystack" }` |
 | GET | `/api/me` | Bearer | Current profile |
 | PATCH | `/api/me` | Bearer | Update `displayName`, `bio`, `avatarEmoji`, `cupPrice`, `goal` |
