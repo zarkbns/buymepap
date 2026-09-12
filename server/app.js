@@ -15,6 +15,8 @@ export function createApp() {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
+  app.get('/healthz', (req, res) => res.json({ ok: true, paymentsMode: config.paystackMode }));
+
   app.use('/api/webhooks', webhooksRoutes);
   app.use(express.json({ limit: '64kb' }));
 
