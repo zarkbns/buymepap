@@ -80,5 +80,5 @@ export function migrate() {
   return { from: current, to: Math.max(current, ...MIGRATIONS.map((m) => m.version)), applied };
 }
 
-export { config };
+export { config, db };
 export default db;

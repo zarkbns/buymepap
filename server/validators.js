@@ -1,12 +1,15 @@
+import { normalizePhone } from './security/phone.js';
+
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMOJI_RE = /^\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*$/u;
 
+/** Names that would impersonate the platform or collide with app routes. */
 const RESERVED_USERNAMES = new Set([
   'api', 'admin', 'root', 'me', 'about', 'terms', 'privacy', 'explore',
   'login', 'logout', 'signup', 'settings', 'dashboard', 'pages', 'supports',
   'webhooks', 'assets', 'static', 'src', 'vendor', 'favicon.ico',
-  'mock-checkout', 'buymepap', 'buymeacoffee',
+  'mock-checkout', 'kyc', 'kyc-return', 'auth', 'verify', 'withdraw',
+  'buymepap', 'buymeacoffee', 'support', 'help', 'security', 'official',
 ]);
 
 export function validateUsername(username) {
@@ -14,20 +17,6 @@ export function validateUsername(username) {
     return 'Username must be 3-20 characters: lowercase letters, numbers and underscores.';
   }
   if (RESERVED_USERNAMES.has(username)) return 'That username is reserved.';
-  return null;
-}
-
-export function validateEmail(email) {
-  if (typeof email !== 'string' || !EMAIL_RE.test(email) || email.length > 254) {
-    return 'Enter a valid email address.';
-  }
-  return null;
-}
-
-export function validatePassword(password) {
-  if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
-    return 'Password must be 8-128 characters.';
-  }
   return null;
 }
 
@@ -52,22 +41,23 @@ export function validateAvatarEmoji(emoji) {
   return null;
 }
 
-export function validateCupPrice(price) {
-  if (!Number.isInteger(price) || price < 1 || price > 100000) {
-    return 'Price per pap must be a whole number between 1 and 100000.';
+/** Cup price in naira (UI unit); stored as kobo downstream. */
+export function validateNairaAmount(value, { min = 1, max = 100_000 } = {}) {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    return `Amount must be a whole number between ${min} and ${max}.`;
   }
   return null;
 }
 
-export function validateGoal(goal) {
-  if (!Number.isInteger(goal) || goal < 0 || goal > 100000000) {
-    return 'Goal must be a whole number between 0 and 100000000.';
+export function validateGoalKobo(goalKobo) {
+  if (!Number.isSafeInteger(goalKobo) || goalKobo < 0 || goalKobo > 10_000_000_000) {
+    return 'Goal must be a whole number of kobo between 0 and 10,000,000,000.';
   }
   return null;
 }
 
 export function validateSupportInput({ cups, name, message, isAnonymous }) {
-  if (!Number.isInteger(cups) || cups < 1 || cups > 100) {
+  if (!Number.isSafeInteger(cups) || cups < 1 || cups > 100) {
     return 'Cups of pap must be between 1 and 100.';
   }
   if (typeof name !== 'string' || name.trim().length < 1 || name.trim().length > 30) {
@@ -82,4 +72,40 @@ export function validateSupportInput({ cups, name, message, isAnonymous }) {
   return null;
 }
 
-export const MAX_AMOUNT_KOBO = 1_000_000_000;
+export function validateEmail(email) {
+  if (email === undefined || email === null || email === '') return null;
+  if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return 'Enter a valid email address.';
+  }
+  return null;
+}
+
+export function normalizePhoneInput(phone) {
+  return normalizePhone(phone);
+}
+
+export function validateOtpCode(code) {
+  if (typeof code !== 'string' || !/^\d{4,8}$/.test(code)) return 'Enter the code we sent you.';
+  return null;
+}
+
+export function validateAccountNumber(accountNumber) {
+  if (typeof accountNumber !== 'string' || !/^\d{6,17}$/.test(accountNumber)) {
+    return 'Account number must be 6-17 digits.';
+  }
+  return null;
+}
+
+export function validateBankCode(bankCode) {
+  if (typeof bankCode !== 'string' || !/^[A-Za-z0-9\-]{2,12}$/.test(bankCode)) {
+    return 'Select a valid bank.';
+  }
+  return null;
+}
+
+export function validateWithdrawalKobo(amountKobo) {
+  if (!Number.isSafeInteger(amountKobo) || amountKobo <= 0) {
+    return 'Amount must be a positive whole number of kobo.';
+  }
+  return null;
+}

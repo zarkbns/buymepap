@@ -53,6 +53,7 @@ const config = {
   jwtSecret: str('JWT_SECRET'),
   sessionCookie: str('SESSION_COOKIE_NAME', 'buymepap_session'),
   sessionTtlSeconds: int('SESSION_TTL_SECONDS', 30 * 24 * 60 * 60),
+  pendingTtlSeconds: int('PENDING_TTL_SECONDS', 15 * 60),
   cookieSecure: bool('COOKIE_SECURE', isProd),
   cookieSameSite: str('COOKIE_SAMESITE', 'lax'),
   csrfCookie: str('CSRF_COOKIE_NAME', 'buymepap_csrf'),
@@ -69,6 +70,7 @@ const config = {
   minWithdrawalKobo: int('MIN_WITHDRAWAL_KOBO', 100_000),
   maxWithdrawalKobo: int('MAX_WITHDRAWAL_KOBO', 10_000_000),
   maxOpenWithdrawals: int('MAX_OPEN_WITHDRAWALS', 3),
+  withdrawalFeeKobo: int('WITHDRAWAL_FEE_KOBO', 0),
 
   // Creator onboarding / reservations
   reservationTtlSeconds: int('USERNAME_RESERVATION_TTL_SECONDS', 7 * 24 * 60 * 60),
