@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Buy Me a Coffee for Nigeria and Africa — fans buy creators a cup of pap. Naira tips via Paystack: cards, bank transfer, USSD.",
+  "description": "Get your link. Get paid. BuyMePap is a creator-payment platform for Nigeria — fans buy creators a cup of pap via Flutterwave: cards, bank transfer, USSD.",
   "engines": {
     "node": ">=24"
   },
@@ -15,7 +15,6 @@
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "jose": "^6.1.0",
