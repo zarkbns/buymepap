@@ -80,7 +80,7 @@ export function createApp() {
     requireSameOrigin(req, res) === null ? undefined : next();
   });
 
-  app.use('/api/auth', limiters.claim, authRoutes);
+  app.use('/api/auth', authRoutes);
   app.get('/api/config', (_req, res) => {
     res.json({ paymentsProvider: config.paymentsProvider, kycProvider: config.kycProvider, currency: config.currency });
   });

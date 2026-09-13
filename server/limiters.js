@@ -29,13 +29,13 @@ export function createLimiters() {
       windowMs: 15 * 60 * 1000,
       limit: 5,
       message: 'Too many codes requested. Wait a few minutes and try again.',
-      keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.phone ?? '')}`,
+      keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.phone ?? req.session?.phone ?? '')}`,
     }),
     otpVerify: limiter({
       windowMs: 15 * 60 * 1000,
       limit: 12,
       message: 'Too many wrong codes. Wait a few minutes and try again.',
-      keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.phone ?? '')}`,
+      keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.phone ?? req.session?.phone ?? '')}`,
     }),
 
     // Public page reads stay cheap; payments are the guarded step.

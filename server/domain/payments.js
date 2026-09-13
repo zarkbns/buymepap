@@ -72,7 +72,7 @@ export function markPaymentFailed(reference, providerRef) {
  * the ledger untouched rather than crediting a wrong figure.
  */
 // Caller must hold a transaction (applyProviderConfirmation provides one).
-function settlePayment(reference, { providerRef = null } = {}) {
+export function settlePayment(reference, { providerRef = null } = {}) {
   {
     const payment = db.prepare('SELECT * FROM payments WHERE reference = ?').get(reference);
     if (!payment) return { outcome: 'not_found' };

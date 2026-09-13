@@ -24,13 +24,9 @@ function eventLog(provider, parsed, rawBody) {
     reference: parsed?.reference ?? null,
     rawBody,
   });
-  if (first.inserted) return { eventId: first.row.id, retry: false };
-  if (first.row && first.row.status === 'failed') {
-    // A previous processing attempt failed: allow this delivery to reprocess.
-    db.prepare(`UPDATE provider_events SET status = 'received', error = NULL WHERE id = ?`).run(first.row.id);
-    return { eventId: first.row.id, retry: true };
-  }
-  return { eventId: first.row?.id ?? null, retry: false, duplicate: true };
+  // First delivery, or a re-delivery of an event whose last processing failed.
+  if (first.inserted || first.retry) return { eventId: first.row.id, duplicate: false };
+  return { eventId: first.row?.id ?? null, duplicate: true };
 }
 
 /**

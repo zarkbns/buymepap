@@ -7,12 +7,16 @@ import { maskPhone, normalizePhone } from '../security/phone.js';
 
 const router = Router();
 
+// Per-route buckets: claiming, code delivery and code verification each get
+// their own budget (keyed per phone where applicable).
+const limiter = (name) => (req, res, next) => req.app.get('limiters')[name](req, res, next);
+
 /**
  * Step 1 of onboarding: claim a username and link a phone. Creates a draft
  * creator with a reservation TTL and sends the OTP. Nothing else is required
  * to have a link — no email, no password.
  */
-router.post('/claim', async (req, res) => {
+router.post('/claim', limiter('claim'), async (req, res) => {
   if (requireSameOrigin(req, res) === null) return;
   const { username, displayName, phone } = req.body ?? {};
 
@@ -46,7 +50,7 @@ router.post('/claim', async (req, res) => {
 });
 
 /** Sign-in OTP for an existing verified creator. Never reveals whether a phone is registered. */
-router.post('/otp/request', async (req, res) => {
+router.post('/otp/request', limiter('otpRequest'), async (req, res) => {
   if (requireSameOrigin(req, res) === null) return;
   const phone = normalizePhone(req.body?.phone);
   if (!phone) return res.status(400).json({ error: 'Enter a valid phone number.' });
@@ -54,12 +58,14 @@ router.post('/otp/request', async (req, res) => {
   const creator = findByPhone(phone);
   if (creator && creator.phone_verified_at && creator.status !== 'suspended') {
     await issueOtp({ creatorId: creator.id, phone, purpose: 'signin' });
+    const pending = await createPendingToken(creator.id, phone);
+    setPendingCookie(res, pending);
   }
   res.json({ sent: true });
 });
 
 /** Step 2 of onboarding (and sign-in): prove phone ownership with the code. */
-router.post('/otp/verify', async (req, res) => {
+router.post('/otp/verify', limiter('otpVerify'), async (req, res) => {
   if (requireSameOrigin(req, res) === null) return;
   if (!req.session || req.session.scope !== 'pending') {
     return res.status(401).json({ error: 'Start again from your link.' });

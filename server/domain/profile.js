@@ -47,11 +47,11 @@ export function updateProfile(creator, body) {
     if (fields.length > 0) {
       db.prepare(`UPDATE creators SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...params, creator.id);
     }
-    let usernameTaken = false;
     if (body.username !== undefined) {
       const result = changeUsername(getCreatorById(creator.id), body.username);
-      if (result.error) usernameTaken = true;
+      if (result.code === 'taken') return { usernameTaken: true };
+      if (result.error) return { error: result.error };
     }
-    return { creator: getCreatorById(creator.id), usernameTaken };
+    return { creator: getCreatorById(creator.id) };
   });
 }

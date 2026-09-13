@@ -188,13 +188,12 @@ export function changeUsername(creator, username) {
   if (usernameError) return { error: usernameError };
   const normalized = username.toLowerCase();
   if (normalized === creator.username) return { creator };
+  // Caller holds the transaction; the UNIQUE index decides collisions.
   try {
-    return transaction(() => {
-      db.prepare(`UPDATE creators SET username = ?, updated_at = datetime('now') WHERE id = ?`).run(normalized, creator.id);
-      return { creator: getCreatorById(creator.id) };
-    });
+    db.prepare(`UPDATE creators SET username = ?, updated_at = datetime('now') WHERE id = ?`).run(normalized, creator.id);
+    return { creator: getCreatorById(creator.id) };
   } catch (err) {
-    if (isUniqueViolation(err)) return { error: 'That username is taken.' };
+    if (isUniqueViolation(err)) return { error: 'That username is taken.', code: 'taken' };
     throw err;
   }
 }
