@@ -10,10 +10,6 @@ export function newWithdrawalReference() {
   return `wdl_${crypto.randomBytes(8).toString('hex')}`;
 }
 
-export function newOpaqueId(prefix) {
-  return `${prefix}_${crypto.randomBytes(12).toString('hex')}`;
-}
-
 /**
  * Normalises a phone number to E.164. Nigeria-first: local 11-digit numbers
  * (0801…) get the +234 prefix; anything already international is validated.

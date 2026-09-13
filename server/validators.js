@@ -49,13 +49,6 @@ export function validateNairaAmount(value, { min = 1, max = 100_000 } = {}) {
   return null;
 }
 
-export function validateGoalKobo(goalKobo) {
-  if (!Number.isSafeInteger(goalKobo) || goalKobo < 0 || goalKobo > 10_000_000_000) {
-    return 'Goal must be a whole number of kobo between 0 and 10,000,000,000.';
-  }
-  return null;
-}
-
 export function validateSupportInput({ cups, name, message, isAnonymous }) {
   if (!Number.isSafeInteger(cups) || cups < 1 || cups > 100) {
     return 'Cups of pap must be between 1 and 100.';
@@ -82,11 +75,6 @@ export function validateEmail(email) {
 
 export function normalizePhoneInput(phone) {
   return normalizePhone(phone);
-}
-
-export function validateOtpCode(code) {
-  if (typeof code !== 'string' || !/^\d{4,8}$/.test(code)) return 'Enter the code we sent you.';
-  return null;
 }
 
 export function validateAccountNumber(accountNumber) {
