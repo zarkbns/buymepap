@@ -134,6 +134,25 @@ test('too many wrong codes burn the challenge', async () => {
   assert.equal(res.data.reason, 'expired', 'challenge is burned once attempts run out');
 });
 
+test('a phone cannot squat unlimited draft pages', async () => {
+  const phone = uniquePhone();
+  // config.maxDraftsPerPhone defaults to 5: five pending claims succeed…
+  for (let i = 0; i < 5; i += 1) {
+    const res = await api('/api/auth/claim', {
+      method: 'POST',
+      body: { username: uniqueName('squat'), displayName: 'Ada', phone },
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.data));
+  }
+  // …and the sixth is refused until one is verified or swept.
+  const sixth = await api('/api/auth/claim', {
+    method: 'POST',
+    body: { username: uniqueName('squat'), displayName: 'Ada', phone },
+  });
+  assert.equal(sixth.status, 409);
+  assert.match(sixth.data.error, /pending page claims/);
+});
+
 test('unverified draft pages are not publicly visible', async () => {
   const username = uniqueName();
   const phone = uniquePhone();

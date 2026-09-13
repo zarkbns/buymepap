@@ -25,6 +25,11 @@ router.post('/claim', limiter('claim'), async (req, res) => {
   if (result.error === 'phone_already_claimed') {
     return res.status(409).json({ error: 'That phone already has a page. Sign in instead.' });
   }
+  if (result.error === 'too_many_pending_claims') {
+    return res.status(409).json({
+      error: 'This phone already has pending page claims. Verify one or wait for them to expire.',
+    });
+  }
   if (result.error === 'invalid_phone') return res.status(400).json({ error: 'Enter a valid phone number.' });
   if (result.error === 'invalid_username') return res.status(400).json({ error: result.detail });
   if (result.error === 'invalid_display_name') return res.status(400).json({ error: result.detail });

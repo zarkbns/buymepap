@@ -43,6 +43,19 @@ export async function claimUsername({ username, displayName, phone }) {
     return { error: 'phone_already_claimed', creator: existingByPhone };
   }
 
+  // Draft claims carry the phone only in otp_challenges (phone_e164 is set at
+  // verification), so count those to cap mass username squatting per phone.
+  const pendingDrafts = db
+    .prepare(
+      `SELECT COUNT(DISTINCT c.id) AS n
+       FROM otp_challenges o JOIN creators c ON c.id = o.creator_id
+       WHERE o.phone_e164 = ? AND c.status = 'draft'`,
+    )
+    .get(normalized).n;
+  if (pendingDrafts >= config.maxDraftsPerPhone) {
+    return { error: 'too_many_pending_claims' };
+  }
+
   try {
     return transaction(() => {
       const creator = db
