@@ -173,7 +173,9 @@ Framework preset **Vite**, build `npm run build`, output `dist`, rewrites:
 ```
 
 No secrets are ever needed by the frontend; every provider call is
-server-side, and the session is an httpOnly cookie.
+server-side, and the session is an httpOnly cookie. Set `VITE_APP_URL` (or
+`APP_URL`) as a **build-time** variable to the frontend origin so `og:image`
+and `og:url` are absolute — crawlers ignore relative URLs.
 
 ## API
 
@@ -250,6 +252,12 @@ opens for Sumsub only in live KYC mode.
 - Flutterwave/Sumsub endpoint paths are implemented from the published API
   docs and centralized in one file each; run a sandbox smoke test with real
   credentials before launch (no credentials were available for this build).
+  The live KYC widget has never rendered against real Sumsub credentials —
+  mock mode fabricates the decision, so that click is the one part of the
+  lifecycle to walk manually in a sandbox account first.
+- Social previews are site-level: `og:image` is baked in at build time, so a
+  shared creator link shows the BuyMePap card, not that creator's. Per-page
+  cards need a prerender or SSR pass.
 - No password reset needed anymore — but phone-number change is not yet
   supported (deliberately; it is a KYC-sensitive flow).
 - Balances are available immediately after webhook settlement; settlement
