@@ -8,6 +8,16 @@ import { ProviderError } from '../payments/index.js';
  * review decisions. None of these ever reach the browser.
  */
 const TOKEN_TTL_SECONDS = 1800;
+const WEBSDK_SCRIPT = 'sumsub.websdk.2.0.0.js';
+
+/**
+ * SUMSUB_SDK_URL may be either the CDN directory (default) or the exact script
+ * URL, so a provider-side path change is an env edit, not a code change.
+ */
+export function websdkScriptUrl(sdkUrl) {
+  const base = sdkUrl.replace(/\/+$/, '');
+  return base.endsWith('.js') ? base : `${base}/${WEBSDK_SCRIPT}`;
+}
 
 export class SumsubKycProvider {
   #cfg;
@@ -72,7 +82,9 @@ export class SumsubKycProvider {
     if (!creator.kyc_ref) throw new ProviderError('creator has no applicant yet');
     const token = await new SignJWT({
       userId: creator.kyc_ref,
-      applicationUrl: this.#cfg.sdkUrl,
+      // Sumsub checks the embedding page's origin against this claim, so it
+      // must be where the widget actually runs — the app, never the CDN.
+      applicationUrl: this.#cfg.appUrl,
       features: ['kyc'],
       ttl: TOKEN_TTL_SECONDS,
     })
@@ -82,7 +94,7 @@ export class SumsubKycProvider {
       .setIssuer(this.#cfg.clientId)
       .setSubject(creator.kyc_ref)
       .sign(new TextEncoder().encode(this.#cfg.clientSecret));
-    return { token, userId: creator.kyc_ref, sdkUrl: this.#cfg.sdkUrl };
+    return { token, userId: creator.kyc_ref, scriptUrl: websdkScriptUrl(this.#cfg.sdkUrl) };
   }
 
   async fetchDecision(creator) {

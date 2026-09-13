@@ -9,13 +9,13 @@ import { MockKycProvider } from './mock.js';
  *
  *   name: string
  *   createApplicant(creator)            -> { applicantRef }   (stored as kyc_ref)
- *   createSessionToken(creator)         -> { token, userId, sdkUrl } | { mock: true }
+ *   createSessionToken(creator)         -> { token, userId, scriptUrl } | { mock: true }
  *   fetchDecision(creator)              -> { status: 'pending'|'approved'|'rejected', reason? }
  *   verifyWebhook(rawBody, headers)     -> { ok, event | null }
  *       event: { key, type, applicantRef, decision: 'approved'|'rejected'|'pending', reason? }
  */
 
 export function createKycProvider(cfg = config) {
-  if (cfg.kycProvider === 'sumsub') return new SumsubKycProvider(cfg.sumsub);
+  if (cfg.kycProvider === 'sumsub') return new SumsubKycProvider({ ...cfg.sumsub, appUrl: cfg.appUrl });
   return new MockKycProvider();
 }

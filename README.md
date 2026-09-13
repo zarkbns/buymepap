@@ -20,7 +20,7 @@ Claim your link → verify phone → your page is live
 | --- | --- | --- |
 | 1. Claim a link | Username + display name + phone → SMS OTP. No email/password. | `draft`, username reserved for 7 days |
 | 2. Verify phone | Enter the code. The public page goes live. | `active`, phone verified |
-| 3. Verify identity | Sumsub (server-driven). | KYC `pending → approved / rejected` |
+| 3. Verify identity | Sumsub's WebSDK opens in the browser (ID document + selfie); the decision is read back server-side. | KYC `pending → approved / rejected` |
 | 4. Add payout account | Bank + account number, name resolved by the provider. | payout `verified` |
 | 5. Activate payments | One tap. The page can now collect money. | `payments_active` |
 
@@ -77,7 +77,7 @@ server/
   otp.js              hashed, single-use, attempt-capped OTP challenges
   sms/                delivery boundary (generic HTTP gateway | mock outbox)
   payments/           provider interface + Flutterwave adapter + mock adapter
-  kyc/                Sumsub adapter (server-side only) + mock
+  kyc/                Sumsub adapter (mints the short-lived SDK token) + mock
   domain/             onboarding, profile, payments, ledger, withdrawals, events
   routes/             auth (claim/OTP), me (profile/KYC/payout/withdrawals),
                       pages (public + payment init), payments (status),
@@ -123,7 +123,11 @@ npm start                 # Express serves dist/ + API on :8787
    before crediting anyone.
 3. **Sumsub** (Dev Space → API keys): client id + secret + webhook secret +
    level name. `KYC_PROVIDER=sumsub`. Point Sumsub webhooks at
-   `https://yourdomain.com/api/webhooks/sumsub`.
+   `https://yourdomain.com/api/webhooks/sumsub`. The WebSDK token carries `APP_URL`
+   as its `applicationUrl` claim and Sumsub refuses the widget on an origin
+   mismatch, so `APP_URL` must be the origin the page actually loads from (the
+   frontend origin, in a split deploy). If Sumsub serves a different widget build,
+   point `SUMSUB_SDK_URL` at that exact script URL — no code change.
 4. **SMS:** set `SMS_PROVIDER=http` with your gateway's URL + token (JSON
    `POST {to, from, message}`). Any Nigerian aggregator with a simple HTTP API
    works.
@@ -136,7 +140,10 @@ npm start                 # Express serves dist/ + API on :8787
 > The Flutterwave/Sumsub HTTP flows are integration-tested against a fake
 > in-process provider; the exact live endpoint paths are centralised in
 > `server/payments/flutterwave.js` and `server/kyc/sumsub.js` and should be
-> smoke-tested with real sandbox credentials before public launch.
+> smoke-tested with real sandbox credentials before public launch. That includes
+> the WebSDK script filename (`sumsub.websdk.2.0.0.js`), which Sumsub pins per
+> release — the loader accepts either the CDN directory or an exact script URL via
+> `SUMSUB_SDK_URL`, and handles both the 1.x and 2.x widget APIs.
 
 ## Deploying
 
@@ -182,7 +189,7 @@ server-side, and the session is an httpOnly cookie.
 | GET | `/api/config` | — | Public provider modes (no secrets) |
 | GET/PATCH | `/api/me` | cookie/Bearer | Own profile (`cupPrice`, `goal` in naira; stored as kobo) |
 | GET | `/api/me/dashboard` | auth | Stats, balance, activation states, recent support, withdrawals |
-| POST | `/api/me/kyc/session` | auth | Start/resume Sumsub verification (browser-safe token only) |
+| POST | `/api/me/kyc/session` | auth | Start/resume Sumsub verification → `{ token, userId, scriptUrl }` (or `{ mock }`), never a secret |
 | POST | `/api/me/kyc/refresh` | auth | Server-side check of the review state |
 | PUT | `/api/me/payout-account` | auth | Bank + account number, verified via provider |
 | POST | `/api/me/activate` | auth | Turn payments on when every requirement is met |
@@ -213,11 +220,17 @@ Provider error bodies, stack traces and secrets never reach the client.
   serialized as last-4 digits; phone numbers, KYC refs and provider payloads
   never appear in API responses or logs.
 - `express.json` body limit, no-store on API responses, hardened headers.
+- `Permissions-Policy` denies camera, microphone and geolocation everywhere; the
+  only grant in the file is `https://*.sumsub.com`, and it appears solely while
+  `KYC_PROVIDER=sumsub` — mock/dev keeps the full denial.
+- Nothing is fetched from the identity provider until a creator explicitly starts
+  verification: Sumsub's WebSDK script is injected on that click, and the token
+  it runs on expires in 30 minutes and is minted server-side.
 
 ## Tests
 
 ```bash
-npm test     # 73 tests, ~15s, zero external dependencies or credentials
+npm test     # 79 tests, ~16s, zero external dependencies or credentials
 ```
 
 Covers the whole lifecycle end to end against the mock provider: onboarding
@@ -225,7 +238,10 @@ and OTP abuse limits, username collisions and reservation sweeps, activation
 gating, payment math and fulfillment idempotency (including concurrent
 charge/verify races), webhook signatures and event dedupe, fee snapshots and
 ledger accounting, withdrawal double-spend protection, authorization scoping,
-CSRF, and production config fail-fast.
+CSRF, and production config fail-fast. It also pins the identity-verification
+boundary: the SDK token binds to `APP_URL`, the widget script is injected only on
+an explicit start (both WebSDK APIs, failure and retry), and the camera policy
+opens for Sumsub only in live KYC mode.
 
 ## Known limits & next
 

@@ -13,13 +13,23 @@ import mockRoutes from './routes/mock.routes.js';
 import banksRoutes from './routes/banks.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'X-Frame-Options': 'DENY',
-  'Cross-Origin-Opener-Policy': 'same-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-};
+// Sumsub's WebSDK captures an ID document and a selfie inside its own
+// cross-origin frame, and a document-level camera denial cannot be delegated
+// into that frame. So the camera is granted to Sumsub origins only, and only
+// while Sumsub is the configured KYC provider — every other policy stays
+// locked down, including in mock/dev where no capture ever happens.
+export function securityHeaders(kycProvider = config.kycProvider) {
+  const capture = kycProvider === 'sumsub' ? '(https://*.sumsub.com)' : '()';
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Frame-Options': 'DENY',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Permissions-Policy': `camera=${capture}, microphone=${capture}, geolocation=()`,
+  };
+}
+
+const SECURITY_HEADERS = securityHeaders();
 
 function allowedOrigin(origin) {
   if (!origin) return null; // same-origin / curl

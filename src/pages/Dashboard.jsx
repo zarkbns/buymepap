@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, formatKobo, timeAgo } from '../lib/api.js';
+import { runVerification } from '../lib/sumsub.js';
 import { useAuth } from '../lib/auth.jsx';
 
 const EMOJIS = ['🥣', '👩‍💻', '👨‍💻', '🎙️', '📷', '🎨', '✍️', '🧕', '⚽', '💃', '🦁', '🥁'];
@@ -279,9 +280,15 @@ export default function Dashboard() {
     setBusy(true);
     setError('');
     try {
-      await api('/me/kyc/session', { method: 'POST' });
-      // Mock flow: decision is applied by the creator (dev only).
-      await api('/mock/kyc/decision', { method: 'POST', body: { outcome: 'approved' } }).catch(() => {});
+      const session = await api('/me/kyc/session', { method: 'POST' });
+      if (session.mock) {
+        // Mock flow: decision is applied by the creator (dev only).
+        await api('/mock/kyc/decision', { method: 'POST', body: { outcome: 'approved' } });
+      } else {
+        await runVerification(session);
+        // The widget's word proves nothing — ask the server to re-check Sumsub.
+        await api('/me/kyc/refresh', { method: 'POST' }).catch(() => {});
+      }
       await refresh();
       refreshDash();
     } catch (err) {

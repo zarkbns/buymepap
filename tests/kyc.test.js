@@ -112,3 +112,43 @@ test('kyc refresh endpoint reports stored state in mock mode', async () => {
   assert.equal(after.status, 200);
   assert.equal(after.data.kycStatus, 'pending');
 });
+
+test('sumsub session token names the embedding app and a loadable widget script', async () => {
+  const { createKycProvider } = await import('../server/kyc/index.js');
+  const { jwtVerify } = await import('jose');
+  const clientSecret = 'kyc_test_client_secret_at_least_32_chars';
+  const key = new TextEncoder().encode(clientSecret);
+  const provider = createKycProvider({
+    kycProvider: 'sumsub',
+    appUrl: 'https://pap.example',
+    sumsub: { clientId: 'cid', clientSecret, sdkUrl: 'https://cdn.sumsub.com/websdk/' },
+  });
+
+  const session = await provider.createSessionToken({ kyc_ref: 'pap_7_deadbeef' });
+  assert.equal(session.userId, 'pap_7_deadbeef');
+  assert.match(session.scriptUrl, /^https:\/\/cdn\.sumsub\.com\/websdk\/sumsub\.websdk\.\d+\.\d+\.\d+\.js$/);
+
+  const { payload } = await jwtVerify(session.token, key);
+  assert.equal(payload.userId, 'pap_7_deadbeef');
+  // Sumsub refuses the widget when the embedding origin differs from this claim.
+  assert.equal(payload.applicationUrl, 'https://pap.example');
+
+  const pinned = createKycProvider({
+    kycProvider: 'sumsub',
+    appUrl: 'https://pap.example',
+    sumsub: { clientId: 'cid', clientSecret, sdkUrl: 'https://static.sumsub.com/websdk/sumsub.websdk.1.0.2.js' },
+  });
+  const exact = await pinned.createSessionToken({ kyc_ref: 'pap_7_deadbeef' });
+  assert.equal(exact.scriptUrl, 'https://static.sumsub.com/websdk/sumsub.websdk.1.0.2.js');
+});
+
+test('camera access is granted to Sumsub only, and only while Sumsub is the KYC provider', async () => {
+  const { securityHeaders } = await import('../server/app.js');
+  assert.equal(securityHeaders('mock')['Permissions-Policy'], 'camera=(), microphone=(), geolocation=()');
+  assert.equal(
+    securityHeaders('sumsub')['Permissions-Policy'],
+    'camera=(https://*.sumsub.com), microphone=(https://*.sumsub.com), geolocation=()',
+  );
+  // The rest of the lockdown is unconditional.
+  assert.equal(securityHeaders('sumsub')['X-Frame-Options'], 'DENY');
+});
