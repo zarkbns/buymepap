@@ -158,6 +158,9 @@
     transform: scaleX(var(--p, 0));
     transform-origin: left center;
     transition: transform 700ms var(--ease-out);
+    /* Grows into its value on mount, where a transition cannot fire. `backwards`
+       only, so the transition owns --p changes once the animation ends. */
+    animation: grow 900ms var(--ease-out) 250ms backwards;
   }
 
   .reveal {
@@ -237,6 +240,12 @@
   }
 }
 
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .banner,
@@ -246,6 +255,7 @@
     animation-duration: 200ms;
   }
   .bar-fill {
+    animation: none;
     transition-duration: 1ms;
   }
   .skeleton::after {

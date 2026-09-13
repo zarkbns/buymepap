@@ -1,21 +1,39 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 
+/** Sign in with a phone + SMS code. No passwords exist anywhere. */
 export default function Login() {
-  const { login } = useAuth();
+  const { applySession } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [step, setStep] = useState('phone');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  async function submit(e) {
+  async function request(e) {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await login(email, password);
+      await api('/auth/otp/request', { method: 'POST', body: { phone } });
+      setStep('code');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const res = await api('/auth/otp/verify', { method: 'POST', body: { code } });
+      applySession(res);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -26,43 +44,58 @@ export default function Login() {
   return (
     <div className="mx-auto max-w-md pt-8">
       <h1 className="text-2xl font-bold">Welcome back</h1>
-      <p className="mt-1 text-sm text-ink-soft">Sign in to see who bought you a pap.</p>
+      <p className="mt-1 text-sm text-ink-soft">
+        {step === 'phone' ? 'Enter your phone and we will text you a code.' : 'Enter the code we just sent.'}
+      </p>
 
-      <form onSubmit={submit} className="card mt-6 space-y-4">
-        {error && <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
-        <div>
-          <label className="label" htmlFor="email">Email</label>
-          <input
-            id="email"
-            className="input"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="password">Password</label>
-          <input
-            id="password"
-            className="input"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <button className="btn btn-primary w-full" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+      {step === 'phone' ? (
+        <form onSubmit={request} className="card mt-6 space-y-4">
+          {error && <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
+          <div>
+            <label className="label" htmlFor="phone">Phone number</label>
+            <input
+              id="phone"
+              className="input"
+              required
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="0801 234 5678"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          <button className="btn btn-primary w-full" disabled={busy}>
+            {busy ? 'Sending…' : 'Send my code'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={verify} className="card mt-6 space-y-4">
+          {error && <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
+          <div>
+            <label className="label" htmlFor="code">Verification code</label>
+            <input
+              id="code"
+              className="input text-center text-lg font-bold tracking-[0.4em]"
+              required
+              inputMode="numeric"
+              pattern="\d{4,8}"
+              maxLength={8}
+              placeholder="••••••"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <button className="btn btn-primary w-full" disabled={busy || code.length < 4}>
+            {busy ? 'Checking…' : 'Sign in'}
+          </button>
+        </form>
+      )}
 
       <p className="mt-4 text-center text-sm text-ink-soft">
         New here?{' '}
-        <Link to="/signup" className="font-semibold text-pap-dark">
-          Create your page
+        <Link to="/start" className="font-semibold text-pap-dark">
+          Get your link
         </Link>
       </p>
     </div>

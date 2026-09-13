@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api, formatKobo, formatMoney, timeAgo } from '../lib/api.js';
+import { api, formatKobo, formatNaira, timeAgo } from '../lib/api.js';
 
 const PRESETS = [1, 2, 3, 5, 10];
 
@@ -13,7 +13,7 @@ export default function CreatorPage() {
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [payResult, setPayResult] = useState(null);
-  const [mode, setMode] = useState(null);
+  const [mockMode, setMockMode] = useState(false);
 
   const [cups, setCups] = useState(1);
   const [form, setForm] = useState({ name: '', message: '', email: '', isAnonymous: false });
@@ -34,13 +34,15 @@ export default function CreatorPage() {
 
   useEffect(() => {
     api('/config')
-      .then((c) => setMode(c.paymentsMode))
+      .then((c) => setMockMode(c.paymentsProvider === 'mock'))
       .catch(() => {});
   }, []);
 
+  // The redirect back from checkout never means success by itself — ask the
+  // server, which asks the provider.
   useEffect(() => {
     if (!reference) return;
-    api(`/supports/${reference}/verify`)
+    api(`/payments/${reference}`)
       .then((res) => {
         setPayResult(res.status);
         if (res.status === 'success') load();
@@ -70,10 +72,10 @@ export default function CreatorPage() {
         method: 'POST',
         body: { cups, ...form },
       });
-      if (res.authorizationUrl.startsWith('/')) {
-        navigate(res.authorizationUrl);
+      if (res.checkoutUrl.startsWith('/')) {
+        navigate(res.checkoutUrl);
       } else {
-        window.location.assign(res.authorizationUrl);
+        window.location.assign(res.checkoutUrl);
       }
     } catch (err) {
       setError(err.message);
@@ -87,7 +89,7 @@ export default function CreatorPage() {
         <p className="text-5xl">🥣</p>
         <h1 className="mt-4 text-xl font-bold">No creator found at this address.</h1>
         <Link to="/" className="btn btn-primary mt-6">
-          Go home
+          Get your own link
         </Link>
       </div>
     );
@@ -98,31 +100,32 @@ export default function CreatorPage() {
   }
 
   const { creator, supporters, stats } = data;
-  const total = creator.cupPrice * cups;
+  const canAccept = data.canAcceptPayments && creator.canAcceptPayments;
+  const total = creator.cupPriceKobo * cups;
   const goalPct =
-    creator.goal > 0 ? Math.min(100, Math.round(((stats.earnedKobo / 100 / creator.goal) * 100))) : null;
+    creator.goalKobo > 0 ? Math.min(100, Math.round((stats.grossKobo / creator.goalKobo) * 100)) : null;
   const firstName = creator.displayName.split(' ')[0];
 
   return (
     <div className="pt-4">
       {payResult === 'success' && (
-        <div className="mb-6 rounded-2xl bg-accent/10 px-5 py-4 font-medium text-accent ring-1 ring-accent/20">
+        <div className="banner banner-success mb-6">
           🎉 Payment confirmed — your cups are on the wall. {firstName} says go and thank you!
         </div>
       )}
       {payResult === 'pending' && (
-        <div className="mb-6 rounded-2xl bg-pap/15 px-5 py-4 text-sm ring-1 ring-pap/30">
+        <div className="banner banner-warn mb-6 text-sm">
           Your payment is still pending. If you completed it, it will show up on the wall any second.
         </div>
       )}
       {payResult === 'failed' && (
-        <div className="mb-6 rounded-2xl bg-danger/10 px-5 py-4 text-sm text-danger ring-1 ring-danger/20">
+        <div className="banner banner-danger mb-6 text-sm">
           That payment didn't go through. No charge was made — try again below.
         </div>
       )}
-      {mode === 'mock' && (
+      {mockMode && canAccept && (
         <p className="mb-6 rounded-xl bg-ink/5 px-4 py-2 text-xs text-ink-soft">
-          Test mode — no real money moves. Set <span className="font-mono">PAYSTACK_SECRET_KEY</span> to take live payments.
+          Test mode — no real money moves.
         </p>
       )}
 
@@ -134,12 +137,17 @@ export default function CreatorPage() {
               <div>
                 <h1 className="text-2xl font-bold leading-tight">{creator.displayName}</h1>
                 <p className="text-sm text-ink-soft">@{creator.username}</p>
+                {!canAccept && (
+                  <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink-soft">
+                    <span aria-hidden="true">🌙</span> Payments not activated yet
+                  </p>
+                )}
               </div>
             </div>
             {creator.bio && <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{creator.bio}</p>}
             <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm text-ink-soft">
               <span>
-                <b className="text-ink">{formatKobo(stats.earnedKobo)}</b> raised
+                <b className="text-ink">{formatKobo(stats.grossKobo)}</b> raised
               </span>
               <span>
                 <b className="text-ink">{stats.cups}</b> cups of pap
@@ -151,13 +159,11 @@ export default function CreatorPage() {
             {goalPct !== null && (
               <div className="mt-4">
                 <div className="flex justify-between text-xs text-ink-soft">
-                  <span>
-                    Support goal · {formatMoney(creator.goal)}
-                  </span>
+                  <span>Support goal · {formatNaira(creator.goalKobo / 100)}</span>
                   <span>{goalPct}%</span>
                 </div>
-                <div className="mt-1.5 h-2.5 rounded-full bg-ink/10">
-                  <div className="h-2.5 rounded-full bg-pap-dark" style={{ width: `${goalPct}%` }} />
+                <div className="bar mt-1.5">
+                  <div className="bar-fill" style={{ '--p': goalPct / 100 }} />
                 </div>
               </div>
             )}
@@ -166,7 +172,11 @@ export default function CreatorPage() {
           <section className="card">
             <h2 className="font-semibold">Wall of love</h2>
             {supporters.length === 0 ? (
-              <p className="mt-3 text-sm text-ink-soft">No cups poured yet — be the first to buy {firstName} a pap.</p>
+              <p className="mt-3 text-sm text-ink-soft">
+                {canAccept
+                  ? `No cups poured yet — be the first to buy ${firstName} a pap.`
+                  : 'No cups poured yet.'}
+              </p>
             ) : (
               <ul className="mt-4 space-y-5">
                 {supporters.map((s) => (
@@ -189,89 +199,104 @@ export default function CreatorPage() {
         </div>
 
         <aside className="card lg:sticky lg:top-6">
-          <h2 className="font-semibold">Buy {firstName} a pap</h2>
-          <p className="mt-1 text-xs text-ink-soft">
-            {formatMoney(creator.cupPrice)} per cup · card, transfer or USSD via Paystack
-          </p>
+          {canAccept ? (
+            <>
+              <h2 className="font-semibold">Buy {firstName} a pap</h2>
+              <p className="mt-1 text-xs text-ink-soft">
+                {formatNaira(creator.cupPriceKobo / 100)} per cup · card, transfer or USSD
+              </p>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setCups(p)}
-                className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
-                  cups === p ? 'bg-pap-dark text-white' : 'bg-ink/5 hover:bg-ink/10'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    aria-pressed={cups === p}
+                    onClick={() => setCups(p)}
+                    className={`chip ${cups === p ? '' : 'hover:bg-ink/10'}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
 
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              type="button"
-              aria-label="One less cup"
-              className="btn btn-ghost h-10 w-10 rounded-full p-0 text-lg"
-              onClick={() => setCups((c) => Math.max(1, c - 1))}
-            >
-              −
-            </button>
-            <input
-              aria-label="Number of cups"
-              className="input w-16 text-center"
-              type="number"
-              min={1}
-              max={100}
-              value={cups}
-              onChange={(e) => setCups(clampCups(e.target.value))}
-            />
-            <button
-              type="button"
-              aria-label="One more cup"
-              className="btn btn-ghost h-10 w-10 rounded-full p-0 text-lg"
-              onClick={() => setCups((c) => Math.min(100, c + 1))}
-            >
-              +
-            </button>
-            <span className="ml-auto text-lg font-bold">{formatMoney(total)}</span>
-          </div>
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  type="button"
+                  aria-label="One less cup"
+                  className="btn btn-ghost h-10 w-10 rounded-full p-0 text-lg"
+                  onClick={() => setCups((c) => Math.max(1, c - 1))}
+                >
+                  −
+                </button>
+                <input
+                  aria-label="Number of cups"
+                  className="input w-16 text-center"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={cups}
+                  onChange={(e) => setCups(clampCups(e.target.value))}
+                />
+                <button
+                  type="button"
+                  aria-label="One more cup"
+                  className="btn btn-ghost h-10 w-10 rounded-full p-0 text-lg"
+                  onClick={() => setCups((c) => Math.min(100, c + 1))}
+                >
+                  +
+                </button>
+                <span className="ml-auto text-lg font-bold">{formatNaira(total / 100)}</span>
+              </div>
 
-          <form onSubmit={support} className="mt-5 space-y-3">
-            <input
-              className="input"
-              placeholder="Your name"
-              required
-              maxLength={30}
-              value={form.name}
-              onChange={setField('name')}
-            />
-            <textarea
-              className="input resize-none"
-              rows={3}
-              placeholder="Say something nice (optional)"
-              maxLength={500}
-              value={form.message}
-              onChange={setField('message')}
-            />
-            <input
-              className="input"
-              type="email"
-              placeholder="Email for your receipt (optional)"
-              maxLength={254}
-              value={form.email}
-              onChange={setField('email')}
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.isAnonymous} onChange={setField('isAnonymous')} />
-              Hide my name on the wall
-            </label>
-            {error && <p className="rounded-xl bg-danger/10 px-3.5 py-2.5 text-sm text-danger">{error}</p>}
-            <button className="btn btn-primary w-full" disabled={busy || !form.name.trim()}>
-              {busy ? 'Redirecting…' : `Pay ${formatMoney(total)}`}
-            </button>
-          </form>
+              <form onSubmit={support} className="mt-5 space-y-3">
+                <input
+                  className="input"
+                  placeholder="Your name"
+                  required
+                  maxLength={30}
+                  value={form.name}
+                  onChange={setField('name')}
+                />
+                <textarea
+                  className="input resize-none"
+                  rows={3}
+                  placeholder="Say something nice (optional)"
+                  maxLength={500}
+                  value={form.message}
+                  onChange={setField('message')}
+                />
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="Email for your receipt (optional)"
+                  maxLength={254}
+                  value={form.email}
+                  onChange={setField('email')}
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.isAnonymous} onChange={setField('isAnonymous')} />
+                  Hide my name on the wall
+                </label>
+                {error && <p className="rounded-xl bg-danger/10 px-3.5 py-2.5 text-sm text-danger">{error}</p>}
+                <button className="btn btn-primary w-full" disabled={busy || !form.name.trim()}>
+                  {busy ? 'Redirecting…' : `Pay ${formatNaira(total / 100)}`}
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="text-center">
+              <p className="text-4xl">🌙</p>
+              <h2 className="mt-3 font-semibold">{firstName} hasn't activated payments yet</h2>
+              <p className="mt-2 text-sm text-ink-soft">
+                The page is live, but it can't collect money until the creator verifies their identity
+                and adds a payout account. Come back soon — or claim your own link while you wait.
+              </p>
+              <Link to="/start" className="btn btn-ghost mt-4">
+                Get your link
+              </Link>
+            </div>
+          )}
         </aside>
       </div>
     </div>
