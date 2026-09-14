@@ -150,32 +150,51 @@ npm start                 # Express serves dist/ + API on :8787
 The ledger is a single SQLite file, so the API needs one persistent process
 with a writable disk: Vercel for the SPA, Railway (or Render/Fly) for the API,
 with Vercel rewriting `/api/*` to the backend (same-origin, no CORS needed).
+`vercel.json` and `railway.json` are both committed, so neither platform needs
+anything typed into its UI except environment variables.
 
 ### Backend on Railway
 
 `railway.json` is committed: Nixpacks → `npm start`, health check `/healthz`.
 
 1. Deploy `main`; add a **Volume** at `/data` and set `PAP_DB_PATH=/data/buymepap.db`.
-2. Set every variable from the "Going live" list. `PORT` is injected.
-3. Node ≥ 24 is pinned in `engines` for flag-free `node:sqlite`.
+2. Set every variable from the "Going live" list. `PORT` is injected. Set
+   `APP_URL` to the **frontend** origin (`https://<project>.vercel.app`), not the
+   Railway host: it is what the CSRF origin check and the Sumsub `applicationUrl`
+   claim are validated against. `ALLOWED_ORIGINS` stays empty unless a second
+   frontend origin (a custom domain alongside the default one) must also post.
+3. Behind the Vercel proxy a request arrives through two hops, so set
+   `TRUST_PROXY_HOPS=2`; at the default of `1` every visitor shares Vercel's
+   egress address and the per-IP rate limits become one global bucket. Check it
+   with two different devices — the second should not inherit the first's limits.
+4. Node ≥ 24 is pinned in `engines` for flag-free `node:sqlite`.
 
 ### Frontend on Vercel
 
-Framework preset **Vite**, build `npm run build`, output `dist`, rewrites:
+`vercel.json` is committed: Vite preset, `npm ci` → `npm run build` → `dist`, the
+SPA fallback, and the same hardened headers the API sets — Express is not serving
+this SPA, so they have to be declared in both places. One edit is required before
+the first deploy: point the API rewrite at your Railway host.
 
-```json
-{
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "https://<railway-domain>/api/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
+```
+"destination": "https://REPLACE-WITH-YOUR-RAILWAY-URL.up.railway.app/api/:path*"
 ```
 
-No secrets are ever needed by the frontend; every provider call is
-server-side, and the session is an httpOnly cookie. Set `VITE_APP_URL` (or
-`APP_URL`) as a **build-time** variable to the frontend origin so `og:image`
-and `og:url` are absolute — crawlers ignore relative URLs.
+Skip it and the site still builds and renders — every `/api` call 502s, which is
+the quickest way to find the line you just edited. After deploying, confirm the
+proxy with `curl -s https://<frontend>/api/config`: it must return the backend's
+provider modes as JSON, not the SPA's HTML. (`/healthz` is deliberately not
+rewritten — it proves the API is up on the Railway host itself.)
+
+No secrets are ever needed by the frontend: every provider call is server-side,
+and the session is an httpOnly cookie the browser sends to the origin that set it.
+Nothing else to configure — the absolute `og:image`/`og:url` origin is taken from
+Vercel's build-time `VERCEL_PROJECT_PRODUCTION_URL`, and the committed
+`Permissions-Policy` is what allows Sumsub's camera capture to run on this origin.
+Set `VITE_APP_URL` only to override the inferred origin (custom domain, `www`
+variant). Note the pairing this deploy implies: the page is on Vercel while `/api`
+is proxied to another host, so `APP_URL` on the backend must be the **Vercel**
+origin, not the Railway one.
 
 ## API
 
@@ -224,7 +243,9 @@ Provider error bodies, stack traces and secrets never reach the client.
 - `express.json` body limit, no-store on API responses, hardened headers.
 - `Permissions-Policy` denies camera, microphone and geolocation everywhere; the
   only grant in the file is `https://*.sumsub.com`, and it appears solely while
-  `KYC_PROVIDER=sumsub` — mock/dev keeps the full denial.
+  `KYC_PROVIDER=sumsub` — mock/dev keeps the full denial. `vercel.json` states
+  the same grant unconditionally for the SPA host, where it is inert: the widget
+  script is never even fetched unless the server hands out a real session.
 - Nothing is fetched from the identity provider until a creator explicitly starts
   verification: Sumsub's WebSDK script is injected on that click, and the token
   it runs on expires in 30 minutes and is minted server-side.
