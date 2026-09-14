@@ -148,14 +148,16 @@ npm start                 # Express serves dist/ + API on :8787
 ## Deploying
 
 The ledger is a single SQLite file, so the API needs one persistent process
-with a writable disk: Vercel for the SPA, Railway (or Render/Fly) for the API,
-with Vercel rewriting `/api/*` to the backend (same-origin, no CORS needed).
-`vercel.json` and `railway.json` are both committed, so neither platform needs
-anything typed into its UI except environment variables.
+with a writable disk. Two shapes work: **Vercel for the SPA + Railway for the
+API**, with Vercel rewriting `/api/*` to the backend (same-origin, no CORS
+needed), or **Railway alone**, since the API serves the built SPA. `vercel.json`
+and `railway.json` are both committed, so neither platform needs anything typed
+into its UI except environment variables.
 
 ### Backend on Railway
 
-`railway.json` is committed: Nixpacks → `npm start`, health check `/healthz`.
+`railway.json` is committed: Nixpacks → `npm run build` → `npm start`, health
+check `/healthz`.
 
 1. Deploy `main`; add a **Volume** at `/data` and set `PAP_DB_PATH=/data/buymepap.db`.
 2. Set every variable from the "Going live" list. `PORT` is injected. Set
@@ -195,6 +197,18 @@ Set `VITE_APP_URL` only to override the inferred origin (custom domain, `www`
 variant). Note the pairing this deploy implies: the page is on Vercel while `/api`
 is proxied to another host, so `APP_URL` on the backend must be the **Vercel**
 origin, not the Railway one.
+
+### Single host (Railway only, no Vercel)
+
+`railway.json` runs `npm run build` and the API serves `dist/` whenever it
+exists, so one Railway service carries the whole product — nothing to fill in, no
+placeholder, and the ledger cannot drift from the code that reads it. Set
+`APP_URL` to that service's own origin and leave `TRUST_PROXY_HOPS=1` (Railway's
+load balancer is the only hop). Two consequences: a frontend build failure now
+blocks the API deploy with it, and the SPA inherits Express's *conditional*
+`Permissions-Policy` — the Sumsub camera grant appears only while
+`KYC_PROVIDER=sumsub`, which is stricter than the unconditional one in
+`vercel.json`.
 
 ## API
 
